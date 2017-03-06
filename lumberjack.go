@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/Sirupsen/logrus"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -22,6 +23,15 @@ const (
 	DEFAULTMAXBACKUP = 3
 	DEFAULTMAXAGE    = 30 //days
 )
+
+func DecorateRuntimeContext(logger *logrus.Entry) *logrus.Entry {
+	if pc, file, line, ok := runtime.Caller(7); ok {
+		fName := runtime.FuncForPC(pc).Name()
+		return logger.WithField("file", file).WithField("line", line).WithField("func", fName)
+	} else {
+		return logger
+	}
+}
 
 func NewLumberjackHook(lumber interface{}) (*LumberjackHook, error) {
 	defConfig := &lumberjack.Logger{
@@ -108,6 +118,7 @@ func NewLumberjackHook(lumber interface{}) (*LumberjackHook, error) {
 }
 
 func (hook *LumberjackHook) Fire(entry *logrus.Entry) error {
+	entry = DecorateRuntimeContext(entry)
 	line, err := entry.String()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)
