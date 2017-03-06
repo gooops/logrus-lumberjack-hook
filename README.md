@@ -21,7 +21,7 @@ func main() {
 	// 		MaxAge:     28, //days
 	// 	}})
 
-	// 只写日志文件，其他选项默认
+	// 只写日志文件，其他选项默认,支持5个日志级别的配置 crit/err/warn/info/debug
 	lhook, _ := lumberhook.NewLumberjackHook(map[string]string{
 		"info": "/var/log/info.log",
 		"warn": "/var/log/warn.log",
