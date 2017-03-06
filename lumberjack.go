@@ -99,10 +99,11 @@ func NewLumberjackHook(lumber interface{}) (*LumberjackHook, error) {
 			}
 		}
 
+	case string:
+		defConfig.Filename = m
 	default:
-		fmt.Printf("%T", lumber)
+		// fmt.Printf("%T", lumber)
 	}
-	fmt.Println(lumberhook)
 	return lumberhook, nil
 }
 
