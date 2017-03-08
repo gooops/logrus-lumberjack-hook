@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -15,6 +17,8 @@ type LumberjackHook struct {
 	Warn  *lumberjack.Logger
 	Info  *lumberjack.Logger
 	Debug *lumberjack.Logger
+	Depth int
+	Trace bool
 }
 
 const (
@@ -22,6 +26,29 @@ const (
 	DEFAULTMAXBACKUP = 3
 	DEFAULTMAXAGE    = 30 //days
 )
+
+// DecorateRuntimeContext appends line, file and function context to the logger
+// https://gist.github.com/mbrevoort/404c4ef5bb36bb35bc69
+// https://github.com/Sirupsen/logrus/compare/caller-hook
+func (hook *LumberjackHook) decorateRuntimeContext() (file, fName string, line int) {
+	if pc, file, line, ok := runtime.Caller(7 + hook.Depth); ok {
+		if strings.HasSuffix(file, "Sirupsen/logrus/logger.go") {
+			if pc, file, line, ok := runtime.Caller(7 + hook.Depth + 1); ok {
+				fName := runtime.FuncForPC(pc).Name()
+				return file, fName, line
+			}
+		} else if strings.HasSuffix(file, "src/runtime/proc.go") {
+			if pc, file, line, ok := runtime.Caller(7 + hook.Depth - 1); ok {
+				fName := runtime.FuncForPC(pc).Name()
+				return file, fName, line
+			}
+		}
+		fName := runtime.FuncForPC(pc).Name()
+		return file, fName, line
+	} else {
+		return "", "", 0
+	}
+}
 
 func NewLumberjackHook(lumber interface{}) (*LumberjackHook, error) {
 	defConfig := &lumberjack.Logger{
@@ -108,6 +135,9 @@ func NewLumberjackHook(lumber interface{}) (*LumberjackHook, error) {
 }
 
 func (hook *LumberjackHook) Fire(entry *logrus.Entry) error {
+	if hook.Trace {
+		entry.Data["file"], entry.Data["func"], entry.Data["line"] = hook.decorateRuntimeContext()
+	}
 	line, err := entry.String()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)
@@ -134,4 +164,12 @@ func (hook *LumberjackHook) Fire(entry *logrus.Entry) error {
 
 func (hook *LumberjackHook) Levels() []logrus.Level {
 	return logrus.AllLevels
+}
+
+func (hook *LumberjackHook) SetTrace() {
+	hook.Trace = true
+}
+
+func (hook *LumberjackHook) SetTraceDepth(n int) {
+	hook.Depth = n
 }
